@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071014">
+  <title>アーカイブサイト</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #071014;
+      --ink: #f0f2f1;
+      --muted: #bac2c4;
+      --line: rgb(220 231 233 / 28%);
+      --accent: #e0e8e9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: var(--paper);
+      background-image: linear-gradient(rgb(2 8 10 / 38%), rgb(2 8 10 / 38%)), url("images/site-background.jpg");
+      background-position: center;
+      background-size: cover;
+      background-attachment: fixed;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Yu Gothic", Meiryo, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      width: min(100% - 48px, 1440px);
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 0 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.65rem, 3vw, 2.35rem);
+      font-weight: 500;
+      letter-spacing: .08em;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: .8rem;
+      letter-spacing: .12em;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 44px 24px;
+      padding-top: 32px;
+    }
+
+    .item { min-width: 0; }
+
+    .photo-button {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: rgb(240 245 245 / 8%);
+      cursor: zoom-in;
+      overflow: hidden;
+    }
+
+    .photo-button img {
+      display: block;
+      width: 100%;
+      height: auto;
+      transition: opacity 180ms ease;
+    }
+
+    .photo-button:hover img { opacity: .9; }
+    .photo-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+    .item-info {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 12px;
+    }
+
+    .item-name {
+      margin: 0;
+      font-size: .95rem;
+      font-weight: 500;
+      letter-spacing: .04em;
+    }
+
+    .item-words {
+      margin: 0;
+      color: var(--muted);
+      font-size: .83rem;
+      white-space: nowrap;
+    }
+
+    .viewer {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background: rgb(12 12 12 / 93%);
+    }
+
+    .viewer[hidden] { display: none; }
+
+    .viewer figure {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      max-width: min(100%, 1200px);
+      max-height: 100%;
+      margin: 0;
+    }
+
+    .viewer img {
+      display: block;
+      max-width: 100%;
+      max-height: calc(100vh - 100px);
+      object-fit: contain;
+    }
+
+    .viewer figcaption {
+      color: #f1f1ef;
+      font-size: .9rem;
+      letter-spacing: .06em;
+    }
+
+    .viewer-close {
+      position: fixed;
+      top: 16px;
+      right: 20px;
+      padding: 8px 12px;
+      border: 1px solid rgb(255 255 255 / 45%);
+      background: transparent;
+      color: white;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 18px; }
+    }
+
+    @media (max-width: 560px) {
+      body { background-attachment: scroll; }
+      .page { width: min(100% - 32px, 460px); padding: 28px 0 48px; }
+      header { padding-bottom: 18px; }
+      .grid { grid-template-columns: 1fr; gap: 32px; padding-top: 20px; }
+      .item-info { padding-top: 10px; }
+      .viewer { padding: 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>アーカイブサイト</h1>
+      <span class="count" id="count"></span>
+    </header>
+    <section class="grid" id="archive" aria-label="写真一覧"></section>
+  </main>
+
+  <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="写真の拡大表示" hidden>
+    <button class="viewer-close" id="closeViewer" type="button">閉じる</button>
+    <figure>
+      <img id="viewerImage" alt="">
+      <figcaption id="viewerName"></figcaption>
+    </figure>
+  </div>
+
+  <script>
+    const photos = ["01.jpg", "02.jpg", "03.jpg", "05.jpg", "06.jpg"];
+    const archive = document.querySelector("#archive");
+    const viewer = document.querySelector("#viewer");
+    const viewerImage = document.querySelector("#viewerImage");
+    const viewerName = document.querySelector("#viewerName");
+    const closeViewer = document.querySelector("#closeViewer");
+    let lastTrigger = null;
+
+    document.querySelector("#count").textContent = String(photos.length).padStart(2, "0");
+
+    for (const file of photos) {
+      const name = file.replace(".jpg", "");
+      const item = document.createElement("article");
+      item.className = "item";
+      item.innerHTML = `
+        <button class="photo-button" type="button" aria-label="写真 ${name} を拡大">
+          <img src="images/${file}" alt="${name}" loading="lazy">
+        </button>
+        <div class="item-info">
+          <h2 class="item-name">${name}</h2>
+          <p class="item-words">(ここに言葉)</p>
+        </div>`;
+
+      const button = item.querySelector(".photo-button");
+      const image = item.querySelector("img");
+      button.addEventListener("click", () => {
+        lastTrigger = button;
+        viewerImage.src = image.src;
+        viewerImage.alt = name;
+        viewerName.textContent = name;
+        viewer.hidden = false;
+        closeViewer.focus();
+      });
+      archive.append(item);
+    }
+
+    function hideViewer() {
+      viewer.hidden = true;
+      viewerImage.removeAttribute("src");
+      lastTrigger?.focus();
+    }
+
+    closeViewer.addEventListener("click", hideViewer);
+    viewer.addEventListener("click", (event) => {
+      if (event.target === viewer) hideViewer();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !viewer.hidden) hideViewer();
+    });
+  </script>
+</body>
+</html>
